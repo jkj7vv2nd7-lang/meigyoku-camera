@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17181d">
+<meta name="description" content="伝説の名玉レンズの癖を再現するカメラPWA。ぐるぐるボケとシャボン玉ボケを、テストベンチで体験できます。">
+<meta property="og:title" content="名玉カメラ">
+<meta property="og:description" content="伝説の名玉レンズの癖（ぐるぐるボケ・シャボン玉ボケ・ゴースト）を再現するカメラPWA">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://jkj7vv2nd7-lang.github.io/meigyoku-camera/">
+<meta property="og:image" content="https://jkj7vv2nd7-lang.github.io/meigyoku-camera/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<title>名玉カメラ</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root{ --bg:#14151a; --panel:#1e2026; --panel2:#26282f; --ink:#f2efe8; --dim:#a7a5ad; --amber:#e0aa4e; --line:#3a3c44; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system, "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif; }
+  .wrap{ max-width:760px; margin:0 auto; padding:14px 14px 40px; }
+  h1{ font-size:1.7rem; margin:6px 0 2px; letter-spacing:.06em; }
+  h1 .accent{ color:var(--amber); }
+  .sub{ color:var(--dim); font-size:.95rem; margin:0 0 12px; }
+  .stage{ position:relative; background:#000; border-radius:14px; overflow:hidden; border:1px solid var(--line); }
+  canvas#gl{ display:block; width:100%; aspect-ratio:4/3; touch-action:none; }
+  .sun-hint{ position:absolute; left:10px; bottom:8px; background:rgba(10,10,14,.72); color:#ffd98a; font-size:.8rem; padding:4px 10px; border-radius:999px; pointer-events:none; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:14px; }
+  .card h2{ font-size:1.02rem; margin:0 0 10px; color:var(--amber); letter-spacing:.04em; }
+  .lens-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .lens-btn{ text-align:left; background:var(--panel2); color:var(--ink); border:2px solid var(--line); border-radius:12px; padding:12px; cursor:pointer; font-size:.95rem; line-height:1.45; }
+  .lens-btn.on{ border-color:var(--amber); background:#2d2a20; }
+  .lens-btn b{ font-size:1.05rem; display:block; }
+  .lens-btn span{ color:var(--dim); font-size:.82rem; }
+  .seg{ display:flex; gap:8px; }
+  .seg button{ flex:1; min-height:48px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--ink); font-size:.95rem; cursor:pointer; }
+  .seg button.on{ border-color:var(--amber); background:#2d2a20; color:var(--amber); font-weight:700; }
+  .row{ display:flex; align-items:center; gap:12px; margin-top:12px; }
+  .row label{ flex:0 0 6.2em; font-size:.98rem; }
+  .row output{ flex:0 0 4.6em; text-align:right; font-size:1.12rem; font-weight:700; color:var(--amber); }
+  input[type=range]{ flex:1; accent-color:var(--amber); height:36px; }
+  .note{ color:var(--dim); font-size:.86rem; line-height:1.6; margin:8px 0 0; }
+  .big-btn{ display:block; width:100%; min-height:60px; border:none; border-radius:14px; background:linear-gradient(180deg,#e8b45c,#c78f2e); color:#231a05; font-size:1.2rem; font-weight:800; cursor:pointer; margin-top:16px; letter-spacing:.08em; }
+  .ghost-btn{ display:block; width:100%; min-height:52px; border-radius:12px; border:1px solid var(--line); background:var(--panel2); color:var(--ink); font-size:.98rem; cursor:pointer; margin-top:10px; text-align:center; text-decoration:none; line-height:52px; }
+  #result{ margin-top:14px; }
+  #result img{ width:100%; border-radius:14px; border:1px solid var(--line); display:block; }
+  .desc{ font-size:.94rem; line-height:1.75; color:var(--ink); }
+  .desc .homage{ color:var(--dim); font-size:.86rem; }
+  .foot{ color:var(--dim); font-size:.82rem; text-align:center; margin-top:26px; line-height:1.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>名玉<span class="accent">カメラ</span></h1>
+  <p class="sub">伝説の名玉レンズの「癖」を再現するカメラ。第1期はテストベンチで光学エンジンを体験できます。</p>
+
+  <div class="stage">
+    <canvas id="gl" width="960" height="720"></canvas>
+    <div class="sun-hint" id="sun-hint" hidden>太陽はドラッグで動かせます</div>
+  </div>
+
+  <div id="result" hidden>
+    <img id="result-img" alt="撮影した写真">
+    <button type="button" class="big-btn" id="btn-share">共有して保存する</button>
+    <a class="ghost-btn" id="btn-download" download="meigyoku.jpg">ダウンロードする</a>
+    <button type="button" class="ghost-btn" id="btn-result-close">プレビューに戻る</button>
+  </div>
+
+  <div class="card">
+    <h2>レンズ</h2>
+    <div class="lens-grid">
+      <button type="button" class="lens-btn on" id="lens-ural"><b>Ural 58mm F2.0</b>（1968）<br><span>ぐるぐるボケ・青みの発色・虹リングのゴースト</span></button>
+      <button type="button" class="lens-btn" id="lens-gorlitz"><b>Gorlitz 100mm F2.8</b>（1950）<br><span>シャボン玉ボケ・パステル調ハイライト</span></button>
+    </div>
+    <h2 style="margin-top:18px">テストベンチ（被写体）</h2>
+    <div class="seg">
+      <button type="button" id="bench-a" class="on">A 木漏れ日の森</button>
+      <button type="button" id="bench-b">B 逆光の夕暮れ</button>
+      <button type="button" id="bench-c">C 夜の街並み</button>
+    </div>
+    <p class="note" id="bench-note">点光源がたくさんある森。玉ボケとぐるぐるの出方が一番よく分かります。</p>
+  </div>
+
+  <div class="card">
+    <h2>撮影の設定</h2>
+    <div class="row">
+      <label for="aperture">絞り</label>
+      <input type="range" id="aperture" min="0" max="4" step="1" value="0">
+      <output id="aperture-out">F2.0</output>
+    </div>
+    <div class="row">
+      <label for="focus">フォーカス</label>
+      <input type="range" id="focus" min="0" max="1000" step="1" value="620">
+      <output id="focus-out">3.0m</output>
+    </div>
+    <div class="row">
+      <label for="boost">レンズの癖</label>
+      <input type="range" id="boost" min="50" max="150" step="5" value="100">
+      <output id="boost-out">100%</output>
+    </div>
+    <p class="note">「レンズの癖（Character Boost）」は、ぐるぐる・シャボン玉・グロー・ゴーストなど、そのレンズらしさ全体の強さです。</p>
+    <button type="button" class="big-btn" id="btn-capture">撮影する</button>
+    <p class="note">撮影すると、フル解像度（長辺2048px）で描き直して保存できます。ライブ表示は軽さのため中解像度です。</p>
+  </div>
+
+  <div class="card">
+    <h2>このレンズについて</h2>
+    <div class="desc" id="lens-desc"></div>
+  </div>
+
+  <p class="foot">名玉カメラ <span id="app-ver">版数 v1</span><br>不具合が出るかもしれません。実際にご使用の際に不具合がありましたらコメント欄からお知らせください。</p>
+</div>
+
+<script>
+"use strict";
+/* ================= テストベンチ（色＋深度のプロシージャル描画） ================= */
+const BW = 1600, BH = 1200;
+function mulberry32(a) { return function() { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gray(t) { const v = Math.round(Math.max(0, Math.min(1, t)) * 255); return "rgb(" + v + "," + v + "," + v + ")"; }
+function makeCanvas(w, h) { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; }
+
+const sunPos = { x: 0.62, y: 0.40 };
+
+function benchA() {
+  const col = makeCanvas(BW, BH), dep = makeCanvas(BW, BH);
+  const c = col.getContext("2d"), d = dep.getContext("2d");
+  const rnd = mulberry32(1234567);
+  const g = c.createLinearGradient(0, 0, 0, BH);
+  g.addColorStop(0, "#8fbf62"); g.addColorStop(0.5, "#5d8a3c"); g.addColorStop(1, "#2c4a20");
+  c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  d.fillStyle = gray(0.9); d.fillRect(0, 0, BW, BH);
+  /* 奥の光だまり */
+  for (let i = 0; i < 26; i++) {
+    const x = rnd() * BW, y = rnd() * BH * 0.7, r = 60 + rnd() * 150;
+    const rg = c.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, "rgba(255,246,190,0.30)"); rg.addColorStop(1, "rgba(255,246,190,0)");
+    c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+  }
+  /* 遠景の葉むら */
+  for (let i = 0; i < 40; i++) {
+    const x = rnd() * BW, y = rnd() * BH * 0.45, r = 50 + rnd() * 110;
+    c.fillStyle = "rgba(38,66,26,0.55)"; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+    d.fillStyle = gray(0.8); d.beginPath(); d.arc(x, y, r, 0, 7); d.fill();
+  }
+  /* 幹 */
+  const trunks = [[0.16, 0.46], [0.33, 0.55], [0.52, 0.44], [0.68, 0.58], [0.85, 0.48], [0.95, 0.62]];
+  for (const [fx, t] of trunks) {
+    const x = fx * BW, wTop = 26 + rnd() * 20, wBot = wTop * 2.1;
+    c.fillStyle = "#4a3826";
+    c.beginPath(); c.moveTo(x - wTop / 2, 0); c.lineTo(x + wTop / 2, 0); c.lineTo(x + wBot / 2, BH); c.lineTo(x - wBot / 2, BH); c.closePath(); c.fill();
+    d.fillStyle = gray(t);
+    d.beginPath(); d.moveTo(x - wTop / 2, 0); d.lineTo(x + wTop / 2, 0); d.lineTo(x + wBot / 2, BH); d.lineTo(x - wBot / 2, BH); d.closePath(); d.fill();
+    c.fillStyle = "rgba(30,20,12,0.5)";
+    for (let i = 0; i < 5; i++) { const lx = x + (rnd() - 0.5) * wTop; c.fillRect(lx, rnd() * BH, 4, 60 + rnd() * 120); }
+  }
+  /* 中景の茂み */
+  for (let i = 0; i < 22; i++) {
+    const x = rnd() * BW, y = BH * 0.68 + rnd() * BH * 0.3, r = 60 + rnd() * 120;
+    c.fillStyle = "rgba(30,58,22,0.8)"; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+    d.fillStyle = gray(0.35); d.beginPath(); d.arc(x, y, r, 0, 7); d.fill();
+  }
+  /* 木漏れ日（点光源・多数） */
+  for (let i = 0; i < 85; i++) {
+    const x = rnd() * BW, y = rnd() * BH * 0.85, r = 6 + rnd() * 26, t = 0.5 + rnd() * 0.45;
+    c.save(); c.shadowColor = "rgba(255,240,180,0.95)"; c.shadowBlur = r * 1.6;
+    c.fillStyle = "rgba(255,248,205,0.95)"; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); c.restore();
+    d.fillStyle = gray(t); d.beginPath(); d.arc(x, y, r, 0, 7); d.fill();
+  }
+  /* 手前の大きな光の玉（ボケの形を見るため） */
+  const balls = [[0.30, 0.36, 66, 0.16], [0.69, 0.28, 50, 0.20], [0.55, 0.62, 40, 0.24]];
+  for (const [fx, fy, r, t] of balls) {
+    const x = fx * BW, y = fy * BH;
+    const rg = c.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, "rgba(255,236,170,0.95)"); rg.addColorStop(0.8, "rgba(255,220,140,0.55)"); rg.addColorStop(1, "rgba(255,220,140,0)");
+    c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+    d.fillStyle = gray(t); d.beginPath(); d.arc(x, y, r, 0, 7); d.fill();
+  }
+  /* 手前の葉（近景・暗いシルエット） */
+  for (let i = 0; i < 16; i++) {
+    const edge = rnd();
+    const x = edge < 0.5 ? rnd() * BW * 0.22 : BW - rnd() * BW * 0.22;
+    const y = rnd() * BH, r = 40 + rnd() * 80;
+    c.fillStyle = "rgba(16,32,12,0.92)";
+    c.beginPath(); c.ellipse(x, y, r, r * 0.55, rnd() * 3, 0, 7); c.fill();
+    d.fillStyle = gray(0.08); d.beginPath(); d.ellipse(x, y, r, r * 0.55, 0, 0, 7); d.fill();
+  }
+  return { color: col, depth: dep };
+}
+
+function benchB() {
+  const col = makeCanvas(BW, BH), dep = makeCanvas(BW, BH);
+  const c = col.getContext("2d"), d = dep.getContext("2d");
+  const rnd = mulberry32(777);
+  const horizon = BH * 0.64;
+  const g = c.createLinearGradient(0, 0, 0, horizon);
+  g.addColorStop(0, "#2e2a55"); g.addColorStop(0.45, "#8a4460"); g.addColorStop(0.8, "#d96f35"); g.addColorStop(1, "#f6ad4a");
+  c.fillStyle = g; c.fillRect(0, 0, BW, horizon + 2);
+  d.fillStyle = gray(0.97); d.fillRect(0, 0, BW, horizon + 2);
+  /* 太陽 */
+  const sx = sunPos.x * BW, sy = sunPos.y * BH;
+  const sg = c.createRadialGradient(sx, sy, 0, sx, sy, 340);
+  sg.addColorStop(0, "rgba(255,244,200,0.95)"); sg.addColorStop(0.25, "rgba(255,196,110,0.55)"); sg.addColorStop(1, "rgba(255,170,90,0)");
+  c.fillStyle = sg; c.fillRect(0, 0, BW, BH);
+  c.fillStyle = "#fff6d8"; c.beginPath(); c.arc(sx, sy, 58, 0, 7); c.fill();
+  d.fillStyle = gray(1.0); d.beginPath(); d.arc(sx, sy, 58, 0, 7); d.fill();
+  /* 遠い山並み */
+  c.fillStyle = "#503a55"; d.fillStyle = gray(0.92);
+  for (const ctx of [c, d]) {
+    ctx.beginPath(); ctx.moveTo(0, horizon);
+    let y = horizon - 130;
+    for (let x = 0; x <= BW; x += 130) { y = horizon - 90 - rnd() * 130; ctx.lineTo(x, y); }
+    ctx.lineTo(BW, horizon); ctx.closePath(); ctx.fill();
+  }
+  /* 中景の稜線 */
+  c.fillStyle = "#33243e"; d.fillStyle = gray(0.68);
+  for (const ctx of [c, d]) {
+    ctx.beginPath(); ctx.moveTo(0, horizon + 40);
+    for (let x = 0; x <= BW; x += 200) ctx.lineTo(x, horizon + 10 - rnd() * 60);
+    ctx.lineTo(BW, horizon + 90); ctx.lineTo(0, horizon + 90); ctx.closePath(); ctx.fill();
+  }
+  /* 地面 */
+  const gg = c.createLinearGradient(0, horizon, 0, BH);
+  gg.addColorStop(0, "#5a3423"); gg.addColorStop(1, "#1c1210");
+  c.fillStyle = gg; c.fillRect(0, horizon + 60, BW, BH - horizon);
+  d.fillStyle = gray(0.3); d.fillRect(0, horizon + 60, BW, BH - horizon);
+  /* 左の木 */
+  c.fillStyle = "#1c1426"; d.fillStyle = gray(0.38);
+  for (const ctx of [c, d]) {
+    ctx.fillRect(BW * 0.13, BH * 0.34, 26, BH * 0.4);
+    for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.arc(BW * 0.14 + (rnd() - 0.5) * 230, BH * 0.3 + (rnd() - 0.5) * 130, 55 + rnd() * 60, 0, 7); ctx.fill(); }
+  }
+  /* 手前の草 */
+  c.fillStyle = "#120d0c"; d.fillStyle = gray(0.1);
+  for (const ctx of [c, d]) {
+    for (let i = 0; i < 240; i++) {
+      const x = rnd() * BW, h = 50 + rnd() * 130;
+      ctx.beginPath(); ctx.moveTo(x, BH); ctx.quadraticCurveTo(x + (rnd() - 0.5) * 30, BH - h * 0.6, x + (rnd() - 0.5) * 60, BH - h); ctx.lineTo(x + 7, BH); ctx.closePath(); ctx.fill();
+    }
+  }
+  /* 鳥 */
+  c.strokeStyle = "rgba(20,14,26,0.85)"; c.lineWidth = 5;
+  for (const [bx, by] of [[0.3, 0.2], [0.38, 0.16]]) {
+    c.beginPath(); c.arc(bx * BW - 22, by * BH, 22, 3.4, 5.6); c.stroke();
+    c.beginPath(); c.arc(bx * BW + 22, by * BH, 22, 3.7, 6.0); c.stroke();
+  }
+  return { color: col, depth: dep };
+}
+
+function benchC() {
+  const col = makeCanvas(BW, BH), dep = makeCanvas(BW, BH);
+  const c = col.getContext("2d"), d = dep.getContext("2d");
+  const rnd = mulberry32(20240);
+  const g = c.createLinearGradient(0, 0, 0, BH);
+  g.addColorStop(0, "#05081a"); g.addColorStop(0.7, "#0a1030"); g.addColorStop(1, "#05070f");
+  c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  d.fillStyle = gray(0.85); d.fillRect(0, 0, BW, BH);
+  /* 月 */
+  c.fillStyle = "#e8ecf4"; c.beginPath(); c.arc(BW * 0.84, BH * 0.12, 30, 0, 7); c.fill();
+  d.fillStyle = gray(1); d.beginPath(); d.arc(BW * 0.84, BH * 0.12, 30, 0, 7); d.fill();
+  const palette = ["#ff5d8f", "#39d0ff", "#ffb84d", "#7dff6a", "#c792ff", "#ff7847", "#4dffd2"];
+  const lights = [];
+  /* 建物（奥→手前） */
+  const layers = [
+    { t: 0.8, fill: "#0d1330", n: 7, hMin: 0.35, hMax: 0.62 },
+    { t: 0.64, fill: "#070a16", n: 6, hMin: 0.45, hMax: 0.78 },
+  ];
+  for (const L of layers) {
+    let x = -30;
+    while (x < BW) {
+      const w = 130 + rnd() * 190, h = BH * (L.hMin + rnd() * (L.hMax - L.hMin)), y = BH * 0.84 - h;
+      c.fillStyle = L.fill; c.fillRect(x, y, w, h);
+      d.fillStyle = gray(L.t); d.fillRect(x, y, w, h);
+      /* 窓 */
+      for (let wy = y + 24; wy < BH * 0.82; wy += 44) {
+        for (let wx = x + 16; wx < x + w - 20; wx += 40) {
+          if (rnd() < 0.42) {
+            c.fillStyle = rnd() < 0.7 ? "rgba(255,214,150,0.9)" : "rgba(180,210,255,0.85)";
+            c.fillRect(wx, wy, 17, 24);
+          }
+        }
+      }
+      /* 屋上の看板ライト */
+      if (rnd() < 0.75) lights.push({ x: x + w * (0.25 + rnd() * 0.5), y: y - 16, r: 9 + rnd() * 13, col: palette[Math.floor(rnd() * palette.length)], t: L.t });
+      x += w + 14 + rnd() * 40;
+    }
+  }
+  /* 街灯とネオン（点光源） */
+  for (let i = 0; i < 64; i++) {
+    lights.push({ x: rnd() * BW, y: BH * 0.3 + rnd() * BH * 0.52, r: 5 + rnd() * 15, col: palette[Math.floor(rnd() * palette.length)], t: 0.66 + rnd() * 0.12 });
+  }
+  for (const L of lights) {
+    c.save(); c.shadowColor = L.col; c.shadowBlur = L.r * 2.4;
+    c.fillStyle = L.col; c.beginPath(); c.arc(L.x, L.y, L.r, 0, 7); c.fill(); c.restore();
+    d.fillStyle = gray(L.t); d.beginPath(); d.arc(L.x, L.y, L.r, 0, 7); d.fill();
+    /* 路面の反射 */
+    const rg = c.createLinearGradient(0, BH * 0.84, 0, BH);
+    rg.addColorStop(0, L.col + "55"); rg.addColorStop(1, L.col + "00");
+    c.fillStyle = rg;
+    c.beginPath(); c.ellipse(L.x, BH * 0.92, L.r * 0.8, BH * 0.075, 0, 0, 7); c.fill();
+  }
+  /* 路面 */
+  c.fillStyle = "rgba(4,6,12,0.55)"; c.fillRect(0, BH * 0.84, BW, BH * 0.16);
+  d.fillStyle = gray(0.28); d.fillRect(0, BH * 0.84, BW, BH * 0.16);
+  /* 手前の大きな街灯玉 */
+  for (const [fx, colr, t] of [[0.1, "#ffb84d", 0.14], [0.93, "#39d0ff", 0.17]]) {
+    const x = fx * BW, y = BH * 0.55, r = 52;
+    const rg = c.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, colr + "e6"); rg.addColorStop(0.75, colr + "66"); rg.addColorStop(1, colr + "00");
+    c.fillStyle = rg; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+    d.fillStyle = gray(t); d.beginPath(); d.arc(x, y, r, 0, 7); d.fill();
+  }
+  return { color: col, depth: dep };
+}
+</script>
+<script>
+"use strict";
+/* ================= WebGL 光学パイプライン ================= */
+const LENSES = {
+  ural: {
+    label: "Ural 58mm F2.0", stops: [2.0, 2.8, 4.0, 5.6, 8.0],
+    swirl: 0.55, curve: 0.18, ring: 0.0, glow: 0.38, vig: 0.62, ca: 0.0038,
+    ghostMode: 1, ghostAmt: 0.5, tint: [0.965, 1.0, 1.065], contrast: 0.88, lift: 0.02, pastel: 0.0,
+    desc: "<b>Ural 58mm F2.0（1968）</b> ― 冷戦期の東側で生まれた大口径標準レンズへのオマージュです。開放では周辺のボケが渦を巻く「ぐるぐるボケ」と、像面湾曲による周辺のピントのずれ、やや青みを帯びた発色が特徴。逆光では大きな円弧のハローと、虹色のリングゴーストが現れます。<br><span class='homage'>※実在の名玉への敬意を込めたオマージュ名称です。描写は癖の特徴をもとに再現したもので、実レンズの写りを保証するものではありません。深度は擬似的な推定（演出）です。</span>",
+  },
+  gorlitz: {
+    label: "Gorlitz 100mm F2.8", stops: [2.8, 4.0, 5.6, 8.0],
+    swirl: 0.02, curve: 0.05, ring: 0.85, glow: 0.24, vig: 0.42, ca: 0.002,
+    ghostMode: 2, ghostAmt: 0.18, tint: [1.03, 1.0, 0.955], contrast: 0.82, lift: 0.05, pastel: 0.5,
+    desc: "<b>Gorlitz 100mm F2.8（1950）</b> ― 戦後まもないドイツの3枚玉（トリプレット）中望遠へのオマージュです。玉ボケの輪郭だけが明るく残る「シャボン玉ボケ」が代名詞。ハイライトはパステル調ににじみ、コントラストは低めで、全体に柔らかく夢見るような写りになります。ゴーストは控えめです。<br><span class='homage'>※実在の名玉への敬意を込めたオマージュ名称です。描写は癖の特徴をもとに再現したもので、実レンズの写りを保証するものではありません。深度は擬似的な推定（演出）です。</span>",
+  },
+};
+const BENCH_NOTES = {
+  a: "点光源がたくさんある森。玉ボケとぐるぐるの出方が一番よく分かります。",
+  b: "逆光の夕暮れ。太陽を指でドラッグすると、ゴーストが光軸の反対側へ追従します。",
+  c: "色とりどりの点光源がある夜の街並み。玉ボケの色づきと色収差の確認に。",
+};
+const state = {
+  lens: "ural", bench: "a", stopIdx: 0, focusV: 620, boost: 100,
+  benches: {}, sun: sunPos,
+};
+function focusMeters() {
+  if (state.focusV >= 1000) return Infinity;
+  return 0.5 * Math.pow(400, state.focusV / 1000);
+}
+function depthT(meters) {
+  if (!isFinite(meters)) return 1;
+  return Math.max(0, Math.min(1, Math.log(meters / 0.5) / Math.log(400)));
+}
+
+const canvas = document.getElementById("gl");
+const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true, antialias: false });
+if (!gl) document.querySelector(".sub").textContent = "この端末ではWebGLが使えませんでした。";
+
+const VS = "attribute vec2 p; varying vec2 vUv; void main(){ vUv = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }";
+const FS_BLUR = [
+  "precision highp float;",
+  "varying vec2 vUv;",
+  "uniform sampler2D uTex; uniform sampler2D uDepth;",
+  "uniform float uFocusT, uCurve, uCoC, uMaxR, uSwirl, uRing, uAspect;",
+  "float cocAt(vec2 uv){",
+  "  float dpt = texture2D(uDepth, uv).r;",
+  "  vec2 q = (uv - 0.5) * vec2(uAspect, 1.0);",
+  "  float f = uFocusT + uCurve * clamp(dot(q, q) * 1.5, 0.0, 1.0);",
+  "  return clamp(abs(dpt - f) * uCoC, 0.0, 1.0);",
+  "}",
+  "void main(){",
+  "  float cocC = cocAt(vUv);",
+  "  float rad = cocC * uMaxR;",
+  "  vec2 q = (vUv - 0.5) * vec2(uAspect, 1.0);",
+  "  float r2n = clamp(dot(q, q) * 1.5, 0.0, 1.0);",
+  "  vec2 rdir = length(q) > 0.001 ? normalize(q) : vec2(1.0, 0.0);",
+  "  vec2 tdir = vec2(-rdir.y, rdir.x);",
+  "  float squash = clamp(uSwirl * 0.85, 0.0, 0.8) * r2n;",
+  "  float cw = 1.0 - uRing * 0.7;",
+  "  vec3 acc = texture2D(uTex, vUv).rgb * cw; float wsum = cw;",
+  "  for (int i = 0; i < 40; i++){",
+  "    float fi = float(i);",
+  "    float t = (fi + 0.5) / 40.0;",
+  "    float rr = sqrt(t);",
+  "    rr = mix(rr, 0.88 + 0.12 * fract(fi * 0.61803), uRing);",
+  "    float th = fi * 2.399963;",
+  "    vec2 off = vec2(cos(th), sin(th)) * rr;",
+  "    vec2 offQ = off * vec2(1.0, uAspect);",
+  "    float cr = dot(offQ, rdir), ct = dot(offQ, tdir);",
+  "    offQ = rdir * cr * (1.0 - squash) + tdir * ct;",
+  "    vec2 sp = vUv + vec2(offQ.x, offQ.y / uAspect) * rad;",
+  "    vec2 qs = (sp - 0.5) * vec2(uAspect, 1.0);",
+  "    float angS = uSwirl * 0.6 * clamp(dot(qs, qs) * 1.5, 0.0, 1.0);",
+  "    float ca2 = cos(angS), sa2 = sin(angS);",
+  "    vec2 offQ2 = mat2(ca2, -sa2, sa2, ca2) * offQ;",
+  "    vec2 suv = vUv + vec2(offQ2.x, offQ2.y / uAspect) * rad;",
+  "    float w = 0.25 + 0.75 * clamp(cocAt(suv) * 1.25, 0.0, 1.0);",
+  "    acc += texture2D(uTex, suv).rgb * w;",
+  "    wsum += w;",
+  "  }",
+  "  gl_FragColor = vec4(acc / wsum, 1.0);",
+  "}",
+].join("\n");
+const FS_FINISH = [
+  "precision highp float;",
+  "varying vec2 vUv;",
+  "uniform sampler2D uTex;",
+  "uniform float uAspect, uGlow, uVig, uCA, uGhostAmt, uPastel, uContrast, uLift;",
+  "uniform vec3 uSun; uniform vec3 uTint; uniform int uGhostMode;",
+  "float lum(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }",
+  "vec3 sampleCA(vec2 uv){",
+  "  vec2 dir = uv - 0.5;",
+  "  float r2 = dot(dir, dir);",
+  "  vec2 off = dir * uCA * r2 * 4.0;",
+  "  float r = texture2D(uTex, uv + off).r;",
+  "  float g = texture2D(uTex, uv).g;",
+  "  float b = texture2D(uTex, uv - off).b;",
+  "  return vec3(r, g, b);",
+  "}",
+  "void main(){",
+  "  vec3 col = sampleCA(vUv);",
+  "  /* グロー（球面収差の柔らかさ） */",
+  "  vec3 glow = vec3(0.0);",
+  "  for (int i = 0; i < 12; i++){",
+  "    float fi = float(i);",
+  "    float th = fi * 2.399963;",
+  "    vec2 off = vec2(cos(th), sin(th)) * (0.012 + 0.030 * fract(fi * 0.61803));",
+  "    vec3 s = texture2D(uTex, vUv + off * vec2(1.0, uAspect)).rgb;",
+  "    glow += max(s - 0.52, 0.0);",
+  "  }",
+  "  col += glow / 12.0 * uGlow * 2.4;",
+  "  vec2 q = (vUv - 0.5) * vec2(uAspect, 1.0);",
+  "  /* ゴーストとハロー */",
+  "  if (uSun.z > 0.001 && uGhostAmt > 0.001){",
+  "    vec2 sunUv = uSun.xy;",
+  "    /* 太陽まわりの円弧ハロー */",
+  "    float sd = length((vUv - sunUv) * vec2(uAspect, 1.0));",
+  "    float halo = smoothstep(0.030, 0.0, abs(sd - 0.16)) * 0.5 + smoothstep(0.10, 0.0, sd) * 0.35;",
+  "    col += vec3(1.0, 0.85, 0.6) * halo * uSun.z * (uGhostMode == 1 ? 1.0 : 0.45);",
+  "    float scales[4]; scales[0] = 1.0; scales[1] = 0.55; scales[2] = 1.45; scales[3] = -0.35;",
+  "    float radii[4]; radii[0] = 0.15; radii[1] = 0.065; radii[2] = 0.23; radii[3] = 0.045;",
+  "    for (int k = 0; k < 4; k++){",
+  "      if (uGhostMode == 2 && k > 0) break;",
+  "      vec2 gc = 0.5 + (0.5 - sunUv) * scales[k];",
+  "      vec2 dq = (vUv - gc) * vec2(uAspect, 1.0);",
+  "      float dd = length(dq);",
+  "      float ring = smoothstep(0.016, 0.0, abs(dd - radii[k]));",
+  "      float disc = smoothstep(radii[k], radii[k] * 0.55, dd) * 0.16;",
+  "      vec3 tint = vec3(0.65, 0.8, 1.0);",
+  "      if (uGhostMode == 1){",
+  "        float a = atan(dq.y, dq.x);",
+  "        tint = 0.55 + 0.45 * cos(a + vec3(0.0, 2.1, 4.2) + float(k) * 1.3);",
+  "      }",
+  "      col += tint * (ring * 0.55 + disc) * uGhostAmt * uSun.z;",
+  "    }",
+  "  }",
+  "  /* 周辺減光 */",
+  "  float r = length(q);",
+  "  col *= 1.0 - uVig * pow(smoothstep(0.30, 1.02, r), 1.6);",
+  "  /* 色調 */",
+  "  float l = lum(col);",
+  "  col = mix(col, vec3(l), uPastel * smoothstep(0.55, 1.0, l));",
+  "  col = (col - 0.5) * uContrast + 0.5;",
+  "  col = col * (1.0 - uLift * 0.4) + uLift * (1.0 - col) * 0.28;",
+  "  col *= uTint;",
+  "  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);",
+  "}",
+].join("\n");
+
+function makeProg(fs) {
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  gl.shaderSource(vs, VS); gl.compileShader(vs);
+  const f = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(f, fs); gl.compileShader(f);
+  if (!gl.getShaderParameter(f, gl.COMPILE_STATUS)) throw new Error("shader: " + gl.getShaderInfoLog(f));
+  const pr = gl.createProgram();
+  gl.attachShader(pr, vs); gl.attachShader(pr, f); gl.linkProgram(pr);
+  return pr;
+}
+const progBlur = makeProg(FS_BLUR);
+const progFinish = makeProg(FS_FINISH);
+const quad = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+function bindQuad(pr) {
+  const loc = gl.getAttribLocation(pr, "p");
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+}
+function makeTex() {
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  return t;
+}
+const texColor = makeTex(), texDepth = makeTex();
+let rtTex = null, rtFb = null;
+function ensureRT(w, h) {
+  if (rtTex) { gl.deleteTexture(rtTex); gl.deleteFramebuffer(rtFb); }
+  rtTex = makeTex();
+  gl.bindTexture(gl.TEXTURE_2D, rtTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  rtFb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, rtFb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rtTex, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+function uploadBench() {
+  const b = state.benches[state.bench];
+  gl.bindTexture(gl.TEXTURE_2D, texColor);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, b.color);
+  gl.bindTexture(gl.TEXTURE_2D, texDepth);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, b.depth);
+}
+function lensParams() {
+  const L = LENSES[state.lens];
+  const F = L.stops[state.stopIdx];
+  const fRatio = L.stops[0] / F;
+  const boost = state.boost / 100;
+  return {
+    F, fRatio,
+    coc: 1.5 * fRatio,
+    swirl: L.swirl * boost,
+    curve: L.curve,
+    ring: Math.min(1, L.ring * boost),
+    glow: L.glow * boost * (0.55 + 0.45 * fRatio),
+    vig: L.vig * boost * (0.4 + 0.6 * fRatio),
+    ca: L.ca * boost * (0.35 + 0.65 * fRatio),
+    ghostAmt: L.ghostAmt * boost,
+    ghostMode: L.ghostMode,
+    tint: L.tint, contrast: L.contrast, lift: L.lift, pastel: L.pastel,
+  };
+}
+function renderTo(targetW, targetH) {
+  const P = lensParams();
+  const aspect = targetW / targetH;
+  ensureRT(targetW, targetH);
+  /* パス1：可変ボケ */
+  gl.bindFramebuffer(gl.FRAMEBUFFER, rtFb);
+  gl.viewport(0, 0, targetW, targetH);
+  gl.useProgram(progBlur);
+  bindQuad(progBlur);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texColor);
+  gl.uniform1i(gl.getUniformLocation(progBlur, "uTex"), 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texDepth);
+  gl.uniform1i(gl.getUniformLocation(progBlur, "uDepth"), 1);
+  gl.uniform1f(gl.getUniformLocation(progBlur, "uFocusT"), depthT(focusMeters()));
+  gl.uniform1f(gl.getUniformLocation(progBlur, "uCurve"), P.curve * P.fRatio);
+  gl.uniform1f(gl.getUniformLocation(progBlur, "uCoC"), P.coc);
+  gl.uniform1f(gl.getUniformLocation(progBlur, "uMaxR"), 0.0313); /* 最大ボケ半径（UV比。解像度によらず一定） */
+  gl.uniform1f(gl.getUniformLocation(progBlur, "uSwirl"), P.swirl);
+  gl.uniform1f(gl.getUniformLocation(progBlur, "uRing"), P.ring);
+  gl.uniform1f(gl.getUniformLocation(progBlur, "uAspect"), aspect);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  /* パス2：仕上げ */
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, targetW, targetH);
+  gl.useProgram(progFinish);
+  bindQuad(progFinish);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, rtTex);
+  gl.uniform1i(gl.getUniformLocation(progFinish, "uTex"), 0);
+  gl.uniform1f(gl.getUniformLocation(progFinish, "uAspect"), aspect);
+  gl.uniform1f(gl.getUniformLocation(progFinish, "uGlow"), P.glow);
+  gl.uniform1f(gl.getUniformLocation(progFinish, "uVig"), P.vig);
+  gl.uniform1f(gl.getUniformLocation(progFinish, "uCA"), P.ca);
+  gl.uniform1f(gl.getUniformLocation(progFinish, "uGhostAmt"), P.ghostAmt);
+  gl.uniform1i(gl.getUniformLocation(progFinish, "uGhostMode"), P.ghostMode);
+  gl.uniform1f(gl.getUniformLocation(progFinish, "uPastel"), P.pastel);
+  gl.uniform1f(gl.getUniformLocation(progFinish, "uContrast"), P.contrast);
+  gl.uniform1f(gl.getUniformLocation(progFinish, "uLift"), P.lift);
+  gl.uniform3f(gl.getUniformLocation(progFinish, "uTint"), P.tint[0], P.tint[1], P.tint[2]);
+  if (state.bench === "b") gl.uniform3f(gl.getUniformLocation(progFinish, "uSun"), state.sun.x, 1 - state.sun.y, 1.0);
+  else if (state.bench === "c") gl.uniform3f(gl.getUniformLocation(progFinish, "uSun"), 0.84, 1 - 0.12, 0.35);
+  else gl.uniform3f(gl.getUniformLocation(progFinish, "uSun"), 0, 0, 0);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+let renderQueued = false;
+function render() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => { renderQueued = false; renderTo(canvas.width, canvas.height); });
+}
+</script>
+<script>
+"use strict";
+/* ================= 操作系 ================= */
+const $ = id => document.getElementById(id);
+let AC = null;
+function clickSound() {
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === "suspended") AC.resume();
+    const t = AC.currentTime;
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = "square"; o.frequency.value = 2300;
+    g.gain.setValueAtTime(0.055, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+    o.connect(g); g.connect(AC.destination);
+    o.start(t); o.stop(t + 0.035);
+  } catch (e) {}
+  if (navigator.vibrate) { try { navigator.vibrate(8); } catch (e) {} }
+}
+function fmtFocus(m) {
+  if (!isFinite(m)) return "∞";
+  if (m < 1) return m.toFixed(1) + "m";
+  if (m < 10) return m.toFixed(1) + "m";
+  return Math.round(m) + "m";
+}
+function syncLensUI() {
+  const L = LENSES[state.lens];
+  $("lens-ural").classList.toggle("on", state.lens === "ural");
+  $("lens-gorlitz").classList.toggle("on", state.lens === "gorlitz");
+  const ap = $("aperture");
+  ap.max = L.stops.length - 1;
+  if (state.stopIdx > L.stops.length - 1) state.stopIdx = 0;
+  ap.value = state.stopIdx;
+  $("aperture-out").textContent = "F" + L.stops[state.stopIdx].toFixed(1);
+  $("lens-desc").innerHTML = L.desc;
+}
+function setLens(k) { state.lens = k; state.stopIdx = 0; syncLensUI(); render(); }
+function setBench(k) {
+  state.bench = k;
+  for (const b of ["a", "b", "c"]) $("bench-" + b).classList.toggle("on", b === k);
+  $("bench-note").textContent = BENCH_NOTES[k];
+  $("sun-hint").hidden = k !== "b";
+  uploadBench();
+  render();
+}
+$("lens-ural").addEventListener("click", () => setLens("ural"));
+$("lens-gorlitz").addEventListener("click", () => setLens("gorlitz"));
+for (const b of ["a", "b", "c"]) $("bench-" + b).addEventListener("click", () => setBench(b));
+$("aperture").addEventListener("input", () => {
+  const v = Number($("aperture").value);
+  if (v !== state.stopIdx) { state.stopIdx = v; clickSound(); }
+  $("aperture-out").textContent = "F" + LENSES[state.lens].stops[state.stopIdx].toFixed(1);
+  render();
+});
+$("focus").addEventListener("input", () => {
+  state.focusV = Number($("focus").value);
+  $("focus-out").textContent = fmtFocus(focusMeters());
+  render();
+});
+$("boost").addEventListener("input", () => {
+  state.boost = Number($("boost").value);
+  $("boost-out").textContent = state.boost + "%";
+  render();
+});
+/* 太陽のドラッグ（ベンチB） */
+let draggingSun = false;
+function canvasUv(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: Math.max(0.06, Math.min(0.94, (e.clientX - r.left) / r.width)), y: Math.max(0.06, Math.min(0.94, (e.clientY - r.top) / r.height)) };
+}
+canvas.addEventListener("pointerdown", e => {
+  if (state.bench !== "b") return;
+  draggingSun = true;
+  canvas.setPointerCapture(e.pointerId);
+  state.sun = canvasUv(e);
+  state.benches.b = benchB();
+  uploadBench(); render();
+});
+canvas.addEventListener("pointermove", e => {
+  if (!draggingSun || state.bench !== "b") return;
+  state.sun = canvasUv(e);
+  state.benches.b = benchB();
+  uploadBench(); render();
+});
+canvas.addEventListener("pointerup", () => { draggingSun = false; });
+canvas.addEventListener("pointercancel", () => { draggingSun = false; });
+
+/* 撮影（フル解像度で描き直し） */
+let lastBlob = null;
+$("btn-capture").addEventListener("click", () => {
+  clickSound();
+  const W = 2048, H = 1536;
+  canvas.width = W; canvas.height = H;
+  renderTo(W, H);
+  canvas.toBlob(blob => {
+    lastBlob = blob;
+    const url = URL.createObjectURL(blob);
+    $("result-img").src = url;
+    $("btn-download").href = url;
+    $("result").hidden = false;
+    canvas.width = 960; canvas.height = 720;
+    renderTo(960, 720);
+    $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+  }, "image/jpeg", 0.92);
+});
+$("btn-share").addEventListener("click", async () => {
+  if (!lastBlob) return;
+  const file = new File([lastBlob], "meigyoku.jpg", { type: "image/jpeg" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); } catch (e) {}
+  } else {
+    alert("この端末では共有が使えませんでした。「ダウンロードする」をお使いください。");
+  }
+});
+$("btn-result-close").addEventListener("click", () => { $("result").hidden = true; });
+
+/* 初期化 */
+state.benches = { a: benchA(), b: benchB(), c: benchC() };
+syncLensUI();
+$("focus-out").textContent = fmtFocus(focusMeters());
+setBench("a");
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => { navigator.serviceWorker.register("sw.js").catch(() => {}); });
+}
+window.__mg = {
+  state, setLens, setBench, render,
+  setF: idx => { state.stopIdx = idx; syncLensUI(); render(); },
+  setFocusV: v => { state.focusV = v; $("focus-out").textContent = fmtFocus(focusMeters()); render(); },
+  setBoost: v => { state.boost = v; render(); },
+  setSun: (x, y) => { state.sun = { x, y }; state.benches.b = benchB(); if (state.bench === "b") { uploadBench(); render(); } },
+  renderNow: () => renderTo(canvas.width, canvas.height),
+  lensParams,
+};
+</script>
+</body>
+</html>
