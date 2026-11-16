@@ -115,7 +115,7 @@
     <div class="desc" id="lens-desc"></div>
   </div>
 
-  <p class="foot">名玉カメラ <span id="app-ver">版数 v2</span><br>不具合が出るかもしれません。実際にご使用の際に不具合がありましたらコメント欄からお知らせください。</p>
+  <p class="foot">名玉カメラ <span id="app-ver">版数 v3</span><br>不具合が出るかもしれません。実際にご使用の際に不具合がありましたらコメント欄からお知らせください。</p>
 </div>
 
 <script>
@@ -325,7 +325,7 @@ function benchC() {
 const LENSES = {
   ural: {
     label: "Ural 58mm F2.0", stops: [2.0, 2.8, 4.0, 5.6, 8.0],
-    swirl: 1.0, curve: 0.18, ring: 0.0, glow: 0.38, vig: 0.62, ca: 0.0038,
+    swirl: 1.15, curve: 0.18, ring: 0.0, glow: 0.38, vig: 0.62, ca: 0.0038,
     ghostMode: 1, ghostAmt: 0.5, tint: [0.965, 1.0, 1.065], contrast: 0.88, lift: 0.02, pastel: 0.0,
     desc: "<b>Ural 58mm F2.0（1968）</b> ― 冷戦期の東側で生まれた大口径標準レンズへのオマージュです。開放では周辺のボケが渦を巻く「ぐるぐるボケ」と、像面湾曲による周辺のピントのずれ、やや青みを帯びた発色が特徴。逆光では大きな円弧のハローと、虹色のリングゴーストが現れます。<br><span class='homage'>※実在の名玉への敬意を込めたオマージュ名称です。描写は癖の特徴をもとに再現したもので、実レンズの写りを保証するものではありません。深度は擬似的な推定（演出）です。</span>",
   },
@@ -375,10 +375,10 @@ const FS_BLUR = [
   "  float rad = cocC * uMaxR;",
   "  vec2 q = (vUv - 0.5) * vec2(uAspect, 1.0);",
   "  float r2n = clamp(dot(q, q) * 1.5, 0.0, 1.0);",
-  "  float field = smoothstep(0.05, 0.75, r2n);",
+  "  float field = smoothstep(0.03, 0.55, r2n);",
   "  vec2 rdir = length(q) > 0.001 ? normalize(q) : vec2(1.0, 0.0);",
   "  vec2 tdir = vec2(-rdir.y, rdir.x);",
-  "  float squash = clamp(uSwirl * 0.9, 0.0, 0.85) * field;",
+  "  float squash = clamp(uSwirl * 1.0, 0.0, 0.85) * field;",
   "  float cw = 1.0 - uRing * 0.7;",
   "  vec3 acc = texture2D(uTex, vUv).rgb * cw; float wsum = cw;",
   "  for (int i = 0; i < 40; i++){",
@@ -389,7 +389,7 @@ const FS_BLUR = [
   "    float th = fi * 2.399963;",
   "    vec2 off = vec2(cos(th), sin(th)) * rr;",
   "    vec2 offQ = off * vec2(1.0, uAspect);",
-  "    float rotA = uSwirl * 2.0 * field * rr;",
+  "    float rotA = uSwirl * 2.8 * field * rr;",
   "    float ca2 = cos(rotA), sa2 = sin(rotA);",
   "    offQ = mat2(ca2, -sa2, sa2, ca2) * offQ;",
   "    float cr = dot(offQ, rdir), ct = dot(offQ, tdir);",
