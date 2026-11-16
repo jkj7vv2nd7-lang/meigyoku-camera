@@ -43,8 +43,10 @@
   .note{ color:var(--dim); font-size:.86rem; line-height:1.6; margin:8px 0 0; }
   .big-btn{ display:block; width:100%; min-height:60px; border:none; border-radius:14px; background:linear-gradient(180deg,#e8b45c,#c78f2e); color:#231a05; font-size:1.2rem; font-weight:800; cursor:pointer; margin-top:16px; letter-spacing:.08em; }
   .ghost-btn{ display:block; width:100%; min-height:52px; border-radius:12px; border:1px solid var(--line); background:var(--panel2); color:var(--ink); font-size:.98rem; cursor:pointer; margin-top:10px; text-align:center; text-decoration:none; line-height:52px; }
-  #result{ margin-top:14px; }
-  #result img{ width:100%; border-radius:14px; border:1px solid var(--line); display:block; }
+  #result{ position:fixed; inset:0; z-index:60; background:rgba(8,8,11,0.97); overflow-y:auto; padding:22px 16px 34px; }
+  #result .inner{ max-width:680px; margin:0 auto; }
+  #result h2{ font-size:1.5rem; margin:4px 0 6px; color:var(--amber); letter-spacing:.05em; }
+  #result img{ width:100%; max-height:62vh; object-fit:contain; border-radius:14px; border:1px solid var(--line); display:block; background:#000; }
   .desc{ font-size:.94rem; line-height:1.75; color:var(--ink); }
   .desc .homage{ color:var(--dim); font-size:.86rem; }
   .foot{ color:var(--dim); font-size:.82rem; text-align:center; margin-top:26px; line-height:1.7; }
@@ -61,10 +63,14 @@
   </div>
 
   <div id="result" hidden>
-    <img id="result-img" alt="撮影した写真">
-    <button type="button" class="big-btn" id="btn-share">共有して保存する</button>
-    <a class="ghost-btn" id="btn-download" download="meigyoku.jpg">ダウンロードする</a>
-    <button type="button" class="ghost-btn" id="btn-result-close">プレビューに戻る</button>
+    <div class="inner">
+      <h2>撮影しました</h2>
+      <p class="note" style="margin-bottom:12px">フル解像度（2048px）で現像しました。下のボタンから保存できます。</p>
+      <img id="result-img" alt="撮影した写真">
+      <button type="button" class="big-btn" id="btn-share">共有して保存する</button>
+      <a class="ghost-btn" id="btn-download" download="meigyoku.jpg">ダウンロードする</a>
+      <button type="button" class="ghost-btn" id="btn-result-close">ファインダーに戻る</button>
+    </div>
   </div>
 
   <div class="card">
@@ -109,7 +115,7 @@
     <div class="desc" id="lens-desc"></div>
   </div>
 
-  <p class="foot">名玉カメラ <span id="app-ver">版数 v1</span><br>不具合が出るかもしれません。実際にご使用の際に不具合がありましたらコメント欄からお知らせください。</p>
+  <p class="foot">名玉カメラ <span id="app-ver">版数 v2</span><br>不具合が出るかもしれません。実際にご使用の際に不具合がありましたらコメント欄からお知らせください。</p>
 </div>
 
 <script>
@@ -319,7 +325,7 @@ function benchC() {
 const LENSES = {
   ural: {
     label: "Ural 58mm F2.0", stops: [2.0, 2.8, 4.0, 5.6, 8.0],
-    swirl: 0.55, curve: 0.18, ring: 0.0, glow: 0.38, vig: 0.62, ca: 0.0038,
+    swirl: 1.0, curve: 0.18, ring: 0.0, glow: 0.38, vig: 0.62, ca: 0.0038,
     ghostMode: 1, ghostAmt: 0.5, tint: [0.965, 1.0, 1.065], contrast: 0.88, lift: 0.02, pastel: 0.0,
     desc: "<b>Ural 58mm F2.0（1968）</b> ― 冷戦期の東側で生まれた大口径標準レンズへのオマージュです。開放では周辺のボケが渦を巻く「ぐるぐるボケ」と、像面湾曲による周辺のピントのずれ、やや青みを帯びた発色が特徴。逆光では大きな円弧のハローと、虹色のリングゴーストが現れます。<br><span class='homage'>※実在の名玉への敬意を込めたオマージュ名称です。描写は癖の特徴をもとに再現したもので、実レンズの写りを保証するものではありません。深度は擬似的な推定（演出）です。</span>",
   },
@@ -369,9 +375,10 @@ const FS_BLUR = [
   "  float rad = cocC * uMaxR;",
   "  vec2 q = (vUv - 0.5) * vec2(uAspect, 1.0);",
   "  float r2n = clamp(dot(q, q) * 1.5, 0.0, 1.0);",
+  "  float field = smoothstep(0.05, 0.75, r2n);",
   "  vec2 rdir = length(q) > 0.001 ? normalize(q) : vec2(1.0, 0.0);",
   "  vec2 tdir = vec2(-rdir.y, rdir.x);",
-  "  float squash = clamp(uSwirl * 0.85, 0.0, 0.8) * r2n;",
+  "  float squash = clamp(uSwirl * 0.9, 0.0, 0.85) * field;",
   "  float cw = 1.0 - uRing * 0.7;",
   "  vec3 acc = texture2D(uTex, vUv).rgb * cw; float wsum = cw;",
   "  for (int i = 0; i < 40; i++){",
@@ -382,14 +389,12 @@ const FS_BLUR = [
   "    float th = fi * 2.399963;",
   "    vec2 off = vec2(cos(th), sin(th)) * rr;",
   "    vec2 offQ = off * vec2(1.0, uAspect);",
+  "    float rotA = uSwirl * 2.0 * field * rr;",
+  "    float ca2 = cos(rotA), sa2 = sin(rotA);",
+  "    offQ = mat2(ca2, -sa2, sa2, ca2) * offQ;",
   "    float cr = dot(offQ, rdir), ct = dot(offQ, tdir);",
   "    offQ = rdir * cr * (1.0 - squash) + tdir * ct;",
-  "    vec2 sp = vUv + vec2(offQ.x, offQ.y / uAspect) * rad;",
-  "    vec2 qs = (sp - 0.5) * vec2(uAspect, 1.0);",
-  "    float angS = uSwirl * 0.6 * clamp(dot(qs, qs) * 1.5, 0.0, 1.0);",
-  "    float ca2 = cos(angS), sa2 = sin(angS);",
-  "    vec2 offQ2 = mat2(ca2, -sa2, sa2, ca2) * offQ;",
-  "    vec2 suv = vUv + vec2(offQ2.x, offQ2.y / uAspect) * rad;",
+  "    vec2 suv = vUv + vec2(offQ.x, offQ.y / uAspect) * rad;",
   "    float w = 0.25 + 0.75 * clamp(cocAt(suv) * 1.25, 0.0, 1.0);",
   "    acc += texture2D(uTex, suv).rgb * w;",
   "    wsum += w;",
@@ -520,7 +525,7 @@ function lensParams() {
   const boost = state.boost / 100;
   return {
     F, fRatio,
-    coc: 1.5 * fRatio,
+    coc: 2.2 * fRatio,
     swirl: L.swirl * boost,
     curve: L.curve,
     ring: Math.min(1, L.ring * boost),
@@ -548,7 +553,7 @@ function renderTo(targetW, targetH) {
   gl.uniform1f(gl.getUniformLocation(progBlur, "uFocusT"), depthT(focusMeters()));
   gl.uniform1f(gl.getUniformLocation(progBlur, "uCurve"), P.curve * P.fRatio);
   gl.uniform1f(gl.getUniformLocation(progBlur, "uCoC"), P.coc);
-  gl.uniform1f(gl.getUniformLocation(progBlur, "uMaxR"), 0.0313); /* 最大ボケ半径（UV比。解像度によらず一定） */
+  gl.uniform1f(gl.getUniformLocation(progBlur, "uMaxR"), 0.042); /* 最大ボケ半径（UV比。解像度によらず一定） */
   gl.uniform1f(gl.getUniformLocation(progBlur, "uSwirl"), P.swirl);
   gl.uniform1f(gl.getUniformLocation(progBlur, "uRing"), P.ring);
   gl.uniform1f(gl.getUniformLocation(progBlur, "uAspect"), aspect);
@@ -586,19 +591,40 @@ function render() {
 "use strict";
 /* ================= 操作系 ================= */
 const $ = id => document.getElementById(id);
-let AC = null;
-function clickSound() {
+let AC = null, noiseBuf = null;
+function ensureAudio() {
   try {
-    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    if (!AC) {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      const len = Math.floor(AC.sampleRate * 0.03);
+      noiseBuf = AC.createBuffer(1, len, AC.sampleRate);
+      const ch = noiseBuf.getChannelData(0);
+      for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    }
     if (AC.state === "suspended") AC.resume();
-    const t = AC.currentTime;
-    const o = AC.createOscillator(), g = AC.createGain();
-    o.type = "square"; o.frequency.value = 2300;
-    g.gain.setValueAtTime(0.055, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
-    o.connect(g); g.connect(AC.destination);
-    o.start(t); o.stop(t + 0.035);
   } catch (e) {}
+}
+document.addEventListener("pointerdown", ensureAudio, { passive: true });
+function clickSound() {
+  ensureAudio();
+  if (AC && noiseBuf) {
+    try {
+      const t = AC.currentTime;
+      const src = AC.createBufferSource(); src.buffer = noiseBuf;
+      const bp = AC.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2600; bp.Q.value = 0.9;
+      const g = AC.createGain();
+      g.gain.setValueAtTime(0.5, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+      src.connect(bp); bp.connect(g); g.connect(AC.destination);
+      src.start(t);
+      const o = AC.createOscillator(), g2 = AC.createGain();
+      o.type = "square"; o.frequency.value = 1750;
+      g2.gain.setValueAtTime(0.10, t);
+      g2.gain.exponentialRampToValueAtTime(0.001, t + 0.018);
+      o.connect(g2); g2.connect(AC.destination);
+      o.start(t); o.stop(t + 0.02);
+    } catch (e) {}
+  }
   if (navigator.vibrate) { try { navigator.vibrate(8); } catch (e) {} }
 }
 function fmtFocus(m) {
@@ -684,7 +710,6 @@ $("btn-capture").addEventListener("click", () => {
     $("result").hidden = false;
     canvas.width = 960; canvas.height = 720;
     renderTo(960, 720);
-    $("result").scrollIntoView({ behavior: "smooth", block: "start" });
   }, "image/jpeg", 0.92);
 });
 $("btn-share").addEventListener("click", async () => {
@@ -714,6 +739,7 @@ window.__mg = {
   setSun: (x, y) => { state.sun = { x, y }; state.benches.b = benchB(); if (state.bench === "b") { uploadBench(); render(); } },
   renderNow: () => renderTo(canvas.width, canvas.height),
   lensParams,
+  audioState: () => (AC ? AC.state : "none"),
 };
 </script>
 </body>
