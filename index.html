@@ -26,6 +26,7 @@
   .stage{ position:relative; background:#000; border-radius:14px; overflow:hidden; border:1px solid var(--line); }
   canvas#gl{ display:block; width:100%; aspect-ratio:4/3; touch-action:none; }
   .sun-hint{ position:absolute; left:10px; bottom:8px; background:rgba(10,10,14,.72); color:#ffd98a; font-size:.8rem; padding:4px 10px; border-radius:999px; pointer-events:none; }
+  #focus-mark{ position:absolute; width:54px; height:54px; margin:-27px 0 0 -27px; border:2px solid #ffd98a; border-radius:10px; pointer-events:none; box-shadow:0 0 0 1px rgba(0,0,0,.35); }
   .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:10px; }
   .card h2{ font-size:1.02rem; margin:0 0 10px; color:var(--amber); letter-spacing:.04em; }
   .lens-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -55,11 +56,12 @@
 <body>
 <div class="wrap">
   <h1>名玉<span class="accent">カメラ</span></h1>
-  <p class="sub">伝説の名玉レンズの「癖」を再現するカメラ。第1期はテストベンチで光学エンジンを体験できます。</p>
+  <p class="sub">伝説の名玉レンズの「癖」を再現するカメラ。テストベンチでも、実カメラでも使えます。</p>
 
   <div class="stage">
     <canvas id="gl" width="960" height="720"></canvas>
     <div class="sun-hint" id="sun-hint" hidden>太陽はドラッグで動かせます</div>
+    <div id="focus-mark" hidden></div>
   </div>
 
   <div id="result" hidden>
@@ -93,6 +95,13 @@
     <p class="note">「レンズの癖（Character Boost）」は、ぐるぐる・シャボン玉・グロー・ゴーストなど、そのレンズらしさ全体の強さです。</p>
     <button type="button" class="big-btn" id="btn-capture">撮影する</button>
     <p class="note">撮影すると、フル解像度（長辺2048px）で描き直して保存できます。ライブ表示は軽さのため中解像度です。</p>
+    <h2 style="margin-top:18px">実カメラ</h2>
+    <div class="seg">
+      <button type="button" id="btn-cam">カメラを使う</button>
+      <button type="button" id="btn-cam-flip" hidden>前／後を切り替える</button>
+      <button type="button" id="btn-cam-stop" hidden>カメラを止める</button>
+    </div>
+    <p class="note" id="cam-note">背面カメラで実際の景色にレンズの癖をかけられます。映像は端末の中だけで処理され、どこにも送信されません。カメラの深度は推定（演出）です：画面をタップした場所にピントが合っているものとして、フォーカスの距離と画面の広がりからボケを作ります。明るい光源は自動で見つけて、ゴーストを光軸の反対側に出します。</p>
   </div>
 
   <div class="card" id="card-lens">
@@ -100,6 +109,10 @@
     <div class="lens-grid">
       <button type="button" class="lens-btn on" id="lens-ural"><b>Ural 58mm F2.0</b>（1968）<br><span>ぐるぐるボケ・青みの発色・虹リングのゴースト</span></button>
       <button type="button" class="lens-btn" id="lens-gorlitz"><b>Gorlitz 100mm F2.8</b>（1950）<br><span>シャボン玉ボケ・パステル調ハイライト</span></button>
+      <button type="button" class="lens-btn" id="lens-lux"><b>Wetzlar 50mm F1.4</b>（1961）<br><span>柔らかいグローと芯の強さ・レモン型の口径食・逆光のベール</span></button>
+      <button type="button" class="lens-btn" id="lens-tokyo"><b>Tokyo 55mm F1.8</b>（1965）<br><span>アンバーな温かみ・連なる虹色ゴースト・光芒</span></button>
+      <button type="button" class="lens-btn" id="lens-jena"><b>Jena 50mm F1.4</b>（1973）<br><span>高いマイクロコントラスト・深い青と赤・引き締まった黒</span></button>
+      <button type="button" class="lens-btn" id="lens-noct"><b>Wetzlar 50mm F0.95</b>（1975）<br><span>極端に浅い深度・強い周辺減光・夜の滲みと漆黒</span></button>
     </div>
     <h2 style="margin-top:18px">テストベンチ（被写体）</h2>
     <div class="seg">
@@ -115,7 +128,7 @@
     <div class="desc" id="lens-desc"></div>
   </div>
 
-  <p class="foot">名玉カメラ <span id="app-ver">版数 v4</span><br>不具合が出るかもしれません。実際にご使用の際に不具合がありましたらコメント欄からお知らせください。</p>
+  <p class="foot">名玉カメラ <span id="app-ver">版数 v5</span><br>不具合が出るかもしれません。実際にご使用の際に不具合がありましたらコメント欄からお知らせください。</p>
 </div>
 
 <script>
@@ -335,6 +348,32 @@ const LENSES = {
     ghostMode: 2, ghostAmt: 0.18, tint: [1.03, 1.0, 0.955], contrast: 0.82, lift: 0.05, pastel: 0.5,
     desc: "<b>Gorlitz 100mm F2.8（1950）</b> ― 戦後まもないドイツの3枚玉（トリプレット）中望遠へのオマージュです。玉ボケの輪郭だけが明るく残る「シャボン玉ボケ」が代名詞。ハイライトはパステル調ににじみ、コントラストは低めで、全体に柔らかく夢見るような写りになります。ゴーストは控えめです。<br><span class='homage'>※実在の名玉への敬意を込めたオマージュ名称です。描写は癖の特徴をもとに再現したもので、実レンズの写りを保証するものではありません。深度は擬似的な推定（演出）です。</span>",
   },
+  lux: {
+    label: "Wetzlar 50mm F1.4", stops: [1.4, 2.0, 2.8, 4.0, 5.6, 8.0],
+    swirl: 0.10, curve: 0.10, ring: 0.05, glow: 0.50, vig: 0.50, ca: 0.0028,
+    lemon: 0.40, veil: 0.55,
+    ghostMode: 4, ghostAmt: 0.30, tint: [1.02, 1.0, 0.97], contrast: 0.90, lift: 0.03, pastel: 0.15, sat: 0.94, cocMul: 1.05,
+    desc: "<b>Wetzlar 50mm F1.4（1961）</b> ― 「貴婦人」と呼ばれた初代大口径標準レンズへのオマージュです。開放ではハイライトに柔らかいグローがかかりながら芯は残り、周辺の玉ボケはレモン型に少し潰れます（口径食）。逆光では画面全体に優しいベールがかかり、発色はクラシックで穏やかです。<br><span class='homage'>※実在の名玉への敬意を込めたオマージュ名称です。描写は癖の特徴をもとに再現したもので、実レンズの写りを保証するものではありません。深度は擬似的な推定（演出）です。</span>",
+  },
+  tokyo: {
+    label: "Tokyo 55mm F1.8", stops: [1.8, 2.8, 4.0, 5.6, 8.0],
+    swirl: 0.06, curve: 0.08, ring: 0.10, glow: 0.30, vig: 0.45, ca: 0.0030,
+    starburst: 0.8,
+    ghostMode: 3, ghostAmt: 0.55, tint: [1.06, 1.0, 0.90], contrast: 0.92, lift: 0.02, pastel: 0.05, sat: 1.05, cocMul: 0.95,
+    desc: "<b>Tokyo 55mm F1.8（1965）</b> ― 1960年代の国産大衆標準レンズへのオマージュです。硝材由来とされるアンバー寄りの温かい色づきが特徴で、逆光では対角線上に虹色のゴーストが7〜8個連なります。絞ると点光源に光芒（6本のすじ）が出ます。<br><span class='homage'>※実在の名玉への敬意を込めたオマージュ名称です。描写は癖の特徴をもとに再現したもので、実レンズの写りを保証するものではありません。深度は擬似的な推定（演出）です。</span>",
+  },
+  jena: {
+    label: "Jena 50mm F1.4", stops: [1.4, 2.0, 2.8, 4.0, 5.6, 8.0],
+    swirl: 0.03, curve: 0.04, ring: 0.05, glow: 0.16, vig: 0.38, ca: 0.0012,
+    ghostMode: 5, ghostAmt: 0.22, tint: [0.99, 1.0, 1.03], contrast: 1.04, lift: -0.02, pastel: 0.0, sat: 1.16, cocMul: 1.10, cocPow: 1.35,
+    desc: "<b>Jena 50mm F1.4（1973）</b> ― 高性能コーティングで知られるプラナー型大口径へのオマージュです。マイクロコントラストが高く、被写体の質感と立体感が際立ちます。F1.4では繊細な滲みが残りますが、F2.8から鋭く締まります。青と赤は深く、黒は引き締まって沈みます。ゴーストはごく淡く抑えられています。<br><span class='homage'>※実在の名玉への敬意を込めたオマージュ名称です。描写は癖の特徴をもとに再現したもので、実レンズの写りを保証するものではありません。深度は擬似的な推定（演出）です。</span>",
+  },
+  noct: {
+    label: "Wetzlar 50mm F0.95", stops: [0.95, 1.4, 2.0, 2.8, 4.0, 5.6],
+    swirl: 0.30, curve: 0.22, ring: 0.05, glow: 0.55, vig: 0.88, ca: 0.0042,
+    ghostMode: 0, ghostAmt: 0.0, tint: [1.0, 0.99, 1.01], contrast: 0.97, lift: -0.03, pastel: 0.10, sat: 1.02, cocMul: 1.50, cocPow: 0.90,
+    desc: "<b>Wetzlar 50mm F0.95（1975）</b> ― 夜の光を集める超大口径レンズへのオマージュです。被写界深度は極端に浅く、周辺は大きく減光します。ハイライトは幻想的に滲み、シャドウは漆黒に沈む、夜のための写りです。<br><span class='homage'>※実在の名玉への敬意を込めたオマージュ名称です。描写は癖の特徴をもとに再現したもので、実レンズの写りを保証するものではありません。深度は擬似的な推定（演出）です。</span>",
+  },
 };
 const BENCH_NOTES = {
   a: "点光源がたくさんある森。玉ボケとぐるぐるの出方が一番よく分かります。",
@@ -344,6 +383,7 @@ const BENCH_NOTES = {
 const state = {
   lens: "ural", bench: "a", stopIdx: 0, focusV: 620, boost: 100,
   benches: {}, sun: sunPos,
+  cam: { active: false, facing: "environment", stream: null, focusPt: { x: 0.5, y: 0.45 }, sunSm: { x: 0.5, y: 0.4, strength: 0 }, capturing: false },
 };
 function focusMeters() {
   if (state.focusV >= 1000) return Infinity;
@@ -363,7 +403,7 @@ const FS_BLUR = [
   "precision highp float;",
   "varying vec2 vUv;",
   "uniform sampler2D uTex; uniform sampler2D uDepth;",
-  "uniform float uFocusT, uCurve, uCoC, uMaxR, uSwirl, uRing, uAspect;",
+  "uniform float uFocusT, uCurve, uCoC, uMaxR, uSwirl, uRing, uAspect, uLemon;",
   "float cocAt(vec2 uv){",
   "  float dpt = texture2D(uDepth, uv).r;",
   "  vec2 q = (uv - 0.5) * vec2(uAspect, 1.0);",
@@ -393,7 +433,7 @@ const FS_BLUR = [
   "    float ca2 = cos(rotA), sa2 = sin(rotA);",
   "    offQ = mat2(ca2, -sa2, sa2, ca2) * offQ;",
   "    float cr = dot(offQ, rdir), ct = dot(offQ, tdir);",
-  "    offQ = rdir * cr * (1.0 - squash) + tdir * ct;",
+  "    offQ = rdir * cr * (1.0 - squash) * (1.0 - uLemon * field) + tdir * ct;",
   "    vec2 suv = vUv + vec2(offQ.x, offQ.y / uAspect) * rad;",
   "    float wa = uSwirl * 0.85 * field * cocC;",
   "    float wc = cos(wa), ws = sin(wa);",
@@ -411,7 +451,7 @@ const FS_FINISH = [
   "precision highp float;",
   "varying vec2 vUv;",
   "uniform sampler2D uTex;",
-  "uniform float uAspect, uGlow, uVig, uCA, uGhostAmt, uPastel, uContrast, uLift;",
+  "uniform float uAspect, uGlow, uVig, uCA, uGhostAmt, uPastel, uContrast, uLift, uVeil, uStarburst, uSat;",
   "uniform vec3 uSun; uniform vec3 uTint; uniform int uGhostMode;",
   "float lum(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }",
   "vec3 sampleCA(vec2 uv){",
@@ -436,29 +476,66 @@ const FS_FINISH = [
   "  }",
   "  col += glow / 12.0 * uGlow * 2.4;",
   "  vec2 q = (vUv - 0.5) * vec2(uAspect, 1.0);",
+  "  vec2 sunUv = uSun.xy;",
   "  /* ゴーストとハロー */",
   "  if (uSun.z > 0.001 && uGhostAmt > 0.001){",
-  "    vec2 sunUv = uSun.xy;",
   "    /* 太陽まわりの円弧ハロー */",
   "    float sd = length((vUv - sunUv) * vec2(uAspect, 1.0));",
   "    float halo = smoothstep(0.030, 0.0, abs(sd - 0.16)) * 0.5 + smoothstep(0.10, 0.0, sd) * 0.35;",
   "    col += vec3(1.0, 0.85, 0.6) * halo * uSun.z * (uGhostMode == 1 ? 1.0 : 0.45);",
   "    float scales[4]; scales[0] = 1.0; scales[1] = 0.55; scales[2] = 1.45; scales[3] = -0.35;",
   "    float radii[4]; radii[0] = 0.15; radii[1] = 0.065; radii[2] = 0.23; radii[3] = 0.045;",
-  "    for (int k = 0; k < 4; k++){",
-  "      if (uGhostMode == 2 && k > 0) break;",
-  "      vec2 gc = 0.5 + (0.5 - sunUv) * scales[k];",
+  "    for (int k = 0; k < 8; k++){",
+  "      float fk = float(k);",
+  "      vec2 gc; float rad; float alpha = 1.0; vec3 tint = vec3(0.65, 0.8, 1.0);",
+  "      if (uGhostMode == 1){",
+  "        if (k > 3) break;",
+  "        gc = 0.5 + (0.5 - sunUv) * scales[k]; rad = radii[k];",
+  "      } else if (uGhostMode == 2){",
+  "        if (k > 0) break;",
+  "        gc = 0.5 + (0.5 - sunUv) * scales[k]; rad = radii[k];",
+  "      } else if (uGhostMode == 3){",
+  "        gc = 0.5 + (sunUv - 0.5) * (0.82 - fk * 0.235);",
+  "        rad = 0.030 + 0.013 * (0.5 + 0.5 * sin(fk * 2.3));",
+  "        tint = 0.55 + 0.45 * cos(fk * 0.9 + vec3(0.0, 2.1, 4.2));",
+  "        alpha = 0.85;",
+  "      } else if (uGhostMode == 4){",
+  "        if (k > 2) break;",
+  "        float sc4 = k == 0 ? 1.0 : (k == 1 ? 0.5 : -0.4);",
+  "        gc = 0.5 + (0.5 - sunUv) * sc4;",
+  "        rad = k == 0 ? 0.12 : (k == 1 ? 0.06 : 0.09);",
+  "        tint = vec3(1.0, 0.85, 0.62); alpha = 0.5;",
+  "      } else if (uGhostMode == 5){",
+  "        if (k > 1) break;",
+  "        gc = 0.5 + (0.5 - sunUv) * (k == 0 ? 0.9 : -0.5);",
+  "        rad = k == 0 ? 0.07 : 0.05;",
+  "        tint = k == 0 ? vec3(0.9, 0.5, 0.8) : vec3(0.5, 0.9, 0.6);",
+  "        alpha = 0.35;",
+  "      } else { break; }",
   "      vec2 dq = (vUv - gc) * vec2(uAspect, 1.0);",
   "      float dd = length(dq);",
-  "      float ring = smoothstep(0.016, 0.0, abs(dd - radii[k]));",
-  "      float disc = smoothstep(radii[k], radii[k] * 0.55, dd) * 0.16;",
-  "      vec3 tint = vec3(0.65, 0.8, 1.0);",
+  "      float ring = smoothstep(0.016, 0.0, abs(dd - rad));",
+  "      float disc = smoothstep(rad, rad * 0.55, dd) * 0.16;",
   "      if (uGhostMode == 1){",
   "        float a = atan(dq.y, dq.x);",
-  "        tint = 0.55 + 0.45 * cos(a + vec3(0.0, 2.1, 4.2) + float(k) * 1.3);",
+  "        tint = 0.55 + 0.45 * cos(a + vec3(0.0, 2.1, 4.2) + fk * 1.3);",
   "      }",
-  "      col += tint * (ring * 0.55 + disc) * uGhostAmt * uSun.z;",
+  "      col += tint * (ring * 0.55 + disc) * alpha * uGhostAmt * uSun.z;",
   "    }",
+  "  }",
+  "  /* ベール（逆光で画面に広がる優しいかぶり） */",
+  "  if (uVeil > 0.001 && uSun.z > 0.001){",
+  "    vec2 sq = (sunUv - 0.5) * vec2(uAspect, 1.0);",
+  "    float facing = length(sq) > 0.01 ? clamp(dot(normalize(q), normalize(sq)) * 0.5 + 0.5, 0.0, 1.0) : 0.5;",
+  "    col += vec3(1.0, 0.95, 0.88) * (uVeil * uSun.z * (0.25 + 0.75 * pow(facing, 2.0)) * 0.30);",
+  "  }",
+  "  /* 光芒（光源から伸びる6本のすじ） */",
+  "  if (uStarburst > 0.001 && uSun.z > 0.001){",
+  "    vec2 dq2 = (vUv - sunUv) * vec2(uAspect, 1.0);",
+  "    float d2 = length(dq2);",
+  "    float ang = atan(dq2.y, dq2.x);",
+  "    float spikes = pow(0.5 + 0.5 * cos(ang * 6.0), 24.0);",
+  "    col += vec3(1.0, 0.95, 0.85) * spikes * exp(-d2 * 5.5) * uStarburst * uSun.z * 0.8;",
   "  }",
   "  /* 周辺減光 */",
   "  float r = length(q);",
@@ -469,6 +546,8 @@ const FS_FINISH = [
   "  col = (col - 0.5) * uContrast + 0.5;",
   "  col = col * (1.0 - uLift * 0.4) + uLift * (1.0 - col) * 0.28;",
   "  col *= uTint;",
+  "  float l3 = lum(col);",
+  "  col = mix(vec3(l3), col, uSat);",
   "  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);",
   "}",
 ].join("\n");
@@ -530,7 +609,11 @@ function lensParams() {
   const boost = state.boost / 100;
   return {
     F, fRatio,
-    coc: 2.2 * fRatio,
+    coc: 2.2 * Math.pow(fRatio, L.cocPow || 1) * (L.cocMul || 1),
+    lemon: (L.lemon || 0) * fRatio,
+    veil: (L.veil || 0) * fRatio,
+    starburst: (L.starburst || 0) * (1.15 - 0.65 * fRatio),
+    sat: L.sat || 1,
     swirl: L.swirl * boost,
     curve: L.curve,
     ring: Math.min(1, L.ring * boost),
@@ -560,6 +643,7 @@ function renderTo(targetW, targetH) {
   gl.uniform1f(gl.getUniformLocation(progBlur, "uCoC"), P.coc);
   gl.uniform1f(gl.getUniformLocation(progBlur, "uMaxR"), 0.042); /* 最大ボケ半径（UV比。解像度によらず一定） */
   gl.uniform1f(gl.getUniformLocation(progBlur, "uSwirl"), P.swirl);
+  gl.uniform1f(gl.getUniformLocation(progBlur, "uLemon"), P.lemon);
   gl.uniform1f(gl.getUniformLocation(progBlur, "uRing"), P.ring);
   gl.uniform1f(gl.getUniformLocation(progBlur, "uAspect"), aspect);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -579,8 +663,12 @@ function renderTo(targetW, targetH) {
   gl.uniform1f(gl.getUniformLocation(progFinish, "uPastel"), P.pastel);
   gl.uniform1f(gl.getUniformLocation(progFinish, "uContrast"), P.contrast);
   gl.uniform1f(gl.getUniformLocation(progFinish, "uLift"), P.lift);
+  gl.uniform1f(gl.getUniformLocation(progFinish, "uVeil"), P.veil);
+  gl.uniform1f(gl.getUniformLocation(progFinish, "uStarburst"), P.starburst);
+  gl.uniform1f(gl.getUniformLocation(progFinish, "uSat"), P.sat);
   gl.uniform3f(gl.getUniformLocation(progFinish, "uTint"), P.tint[0], P.tint[1], P.tint[2]);
-  if (state.bench === "b") gl.uniform3f(gl.getUniformLocation(progFinish, "uSun"), state.sun.x, 1 - state.sun.y, 1.0);
+  if (state.cam && state.cam.active) gl.uniform3f(gl.getUniformLocation(progFinish, "uSun"), state.cam.sunSm.x, 1 - state.cam.sunSm.y, state.cam.sunSm.strength);
+  else if (state.bench === "b") gl.uniform3f(gl.getUniformLocation(progFinish, "uSun"), state.sun.x, 1 - state.sun.y, 1.0);
   else if (state.bench === "c") gl.uniform3f(gl.getUniformLocation(progFinish, "uSun"), 0.84, 1 - 0.12, 0.35);
   else gl.uniform3f(gl.getUniformLocation(progFinish, "uSun"), 0, 0, 0);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -640,8 +728,7 @@ function fmtFocus(m) {
 }
 function syncLensUI() {
   const L = LENSES[state.lens];
-  $("lens-ural").classList.toggle("on", state.lens === "ural");
-  $("lens-gorlitz").classList.toggle("on", state.lens === "gorlitz");
+  for (const k in LENSES) { const el = $("lens-" + k); if (el) el.classList.toggle("on", state.lens === k); }
   const ap = $("aperture");
   ap.max = L.stops.length - 1;
   if (state.stopIdx > L.stops.length - 1) state.stopIdx = 0;
@@ -651,6 +738,12 @@ function syncLensUI() {
 }
 function setLens(k) { state.lens = k; state.stopIdx = 0; syncLensUI(); render(); }
 function setBench(k) {
+  if (state.cam.active) {
+    state.cam.active = false;
+    if (state.cam.raf) cancelAnimationFrame(state.cam.raf);
+    stopStreamOnly();
+    syncCamUI();
+  }
   state.bench = k;
   for (const b of ["a", "b", "c"]) $("bench-" + b).classList.toggle("on", b === k);
   $("bench-note").textContent = BENCH_NOTES[k];
@@ -658,8 +751,7 @@ function setBench(k) {
   uploadBench();
   render();
 }
-$("lens-ural").addEventListener("click", () => setLens("ural"));
-$("lens-gorlitz").addEventListener("click", () => setLens("gorlitz"));
+for (const k in LENSES) $("lens-" + k).addEventListener("click", () => setLens(k));
 for (const b of ["a", "b", "c"]) $("bench-" + b).addEventListener("click", () => setBench(b));
 $("aperture").addEventListener("input", () => {
   const v = Number($("aperture").value);
@@ -677,13 +769,152 @@ $("boost").addEventListener("input", () => {
   $("boost-out").textContent = state.boost + "%";
   render();
 });
-/* 太陽のドラッグ（ベンチB） */
-let draggingSun = false;
+/* ================= 実カメラ ================= */
+const camVideo = document.createElement("video");
+camVideo.playsInline = true; camVideo.muted = true; camVideo.autoplay = true;
+const camColorC = document.createElement("canvas"); camColorC.width = 960; camColorC.height = 720;
+const camColorCtx = camColorC.getContext("2d");
+const camDepthC = document.createElement("canvas"); camDepthC.width = 480; camDepthC.height = 360;
+const camDepthCtx = camDepthC.getContext("2d");
+const camDetectC = document.createElement("canvas"); camDetectC.width = 64; camDetectC.height = 48;
+const camDetectCtx = camDetectC.getContext("2d", { willReadFrequently: true });
+function uploadSource(c, d) {
+  gl.bindTexture(gl.TEXTURE_2D, texColor);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+  gl.bindTexture(gl.TEXTURE_2D, texDepth);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, d);
+}
+function drawCover(ctx, video, W, H) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) return false;
+  const va = vw / vh, ta = W / H;
+  let sw, sh, sx, sy;
+  if (va > ta) { sh = vh; sw = vh * ta; sx = (vw - sw) / 2; sy = 0; }
+  else { sw = vw; sh = vw / ta; sx = 0; sy = (vh - sh) / 2; }
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, W, H);
+  return true;
+}
+function paintCamDepth(ctx, W, H) {
+  const fT = depthT(focusMeters());
+  const g0 = Math.round(fT * 255);
+  const g1 = Math.round(g0 + (255 - g0) * 0.55);
+  ctx.fillStyle = "rgb(255,255,255)";
+  ctx.fillRect(0, 0, W, H);
+  const fx = state.cam.focusPt.x * W, fy = state.cam.focusPt.y * H;
+  const spread = 0.22 + 0.55 * (state.focusV / 1000);
+  const R = spread * Math.hypot(W, H);
+  const gr = ctx.createRadialGradient(fx, fy, 0, fx, fy, R);
+  gr.addColorStop(0, "rgb(" + g0 + "," + g0 + "," + g0 + ")");
+  gr.addColorStop(0.65, "rgb(" + g1 + "," + g1 + "," + g1 + ")");
+  gr.addColorStop(1, "rgb(255,255,255)");
+  ctx.fillStyle = gr;
+  ctx.fillRect(0, 0, W, H);
+}
+function detectSun() {
+  try {
+    camDetectCtx.drawImage(camVideo, 0, 0, 64, 48);
+    const d = camDetectCtx.getImageData(0, 0, 64, 48).data;
+    let sx = 0, sy = 0, sw = 0, bright = 0;
+    for (let y = 0; y < 48; y++) for (let x = 0; x < 64; x++) {
+      const i = (y * 64 + x) * 4;
+      const lum = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) / 255;
+      if (lum > 0.88) { const w = lum - 0.88; sx += x * w; sy += y * w; sw += w; bright++; }
+    }
+    const S = state.cam.sunSm;
+    if (sw > 0.5) {
+      S.x += ((sx / sw) / 63 - S.x) * 0.3;
+      S.y += ((sy / sw) / 47 - S.y) * 0.3;
+      S.strength += (Math.min(1, bright / 60) - S.strength) * 0.3;
+    } else {
+      S.strength += (0 - S.strength) * 0.1;
+    }
+  } catch (e) {}
+}
+function camLoop() {
+  if (!state.cam.active) return;
+  if (!state.cam.capturing && camVideo.readyState >= 2) {
+    if (drawCover(camColorCtx, camVideo, 960, 720)) {
+      paintCamDepth(camDepthCtx, 480, 360);
+      uploadSource(camColorC, camDepthC);
+      detectSun();
+      renderTo(960, 720);
+    }
+  }
+  state.cam.raf = requestAnimationFrame(camLoop);
+}
+function stopStreamOnly() {
+  if (state.cam.stream) { state.cam.stream.getTracks().forEach(t => t.stop()); state.cam.stream = null; }
+}
+function syncCamUI() {
+  const on = state.cam.active;
+  $("btn-cam").hidden = on;
+  $("btn-cam-flip").hidden = !on;
+  $("btn-cam-stop").hidden = !on;
+  $("focus-mark").hidden = !on;
+  $("sun-hint").hidden = on ? true : state.bench !== "b";
+  if (on) positionFocusMark();
+}
+function positionFocusMark() {
+  const m = $("focus-mark");
+  m.style.left = (state.cam.focusPt.x * 100) + "%";
+  m.style.top = (state.cam.focusPt.y * 100) + "%";
+}
+async function startCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert("この端末・ブラウザではカメラが使えませんでした。");
+    return;
+  }
+  stopStreamOnly();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: state.cam.facing }, width: { ideal: 1280 }, height: { ideal: 960 } },
+      audio: false,
+    });
+    state.cam.stream = stream;
+    camVideo.srcObject = stream;
+    await camVideo.play();
+    state.cam.active = true;
+    syncCamUI();
+    camLoop();
+  } catch (e) {
+    alert("カメラを開始できませんでした。ブラウザのカメラ許可をご確認ください。");
+  }
+}
+function stopCamera() {
+  state.cam.active = false;
+  if (state.cam.raf) cancelAnimationFrame(state.cam.raf);
+  stopStreamOnly();
+  syncCamUI();
+  uploadBench();
+  render();
+}
+$("btn-cam").addEventListener("click", () => { clickSound(); startCamera(); });
+$("btn-cam-stop").addEventListener("click", () => { clickSound(); stopCamera(); });
+$("btn-cam-flip").addEventListener("click", () => {
+  clickSound();
+  state.cam.facing = state.cam.facing === "environment" ? "user" : "environment";
+  startCamera();
+});
+
+/* 太陽のドラッグ（ベンチB）／カメラのタップフォーカス */
+let draggingSun = false, focusingCam = false;
 function canvasUv(e) {
   const r = canvas.getBoundingClientRect();
   return { x: Math.max(0.06, Math.min(0.94, (e.clientX - r.left) / r.width)), y: Math.max(0.06, Math.min(0.94, (e.clientY - r.top) / r.height)) };
 }
+function canvasUvRaw(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: Math.max(0.02, Math.min(0.98, (e.clientX - r.left) / r.width)), y: Math.max(0.02, Math.min(0.98, (e.clientY - r.top) / r.height)) };
+}
 canvas.addEventListener("pointerdown", e => {
+  if (state.cam.active) {
+    focusingCam = true;
+    canvas.setPointerCapture(e.pointerId);
+    state.cam.focusPt = canvasUvRaw(e);
+    positionFocusMark();
+    return;
+  }
   if (state.bench !== "b") return;
   draggingSun = true;
   canvas.setPointerCapture(e.pointerId);
@@ -692,30 +923,49 @@ canvas.addEventListener("pointerdown", e => {
   uploadBench(); render();
 });
 canvas.addEventListener("pointermove", e => {
+  if (focusingCam && state.cam.active) {
+    state.cam.focusPt = canvasUvRaw(e);
+    positionFocusMark();
+    return;
+  }
   if (!draggingSun || state.bench !== "b") return;
   state.sun = canvasUv(e);
   state.benches.b = benchB();
   uploadBench(); render();
 });
-canvas.addEventListener("pointerup", () => { draggingSun = false; });
-canvas.addEventListener("pointercancel", () => { draggingSun = false; });
+canvas.addEventListener("pointerup", () => { draggingSun = false; focusingCam = false; });
+canvas.addEventListener("pointercancel", () => { draggingSun = false; focusingCam = false; });
 
 /* 撮影（フル解像度で描き直し） */
 let lastBlob = null;
+function finishCapture(blob) {
+  lastBlob = blob;
+  const url = URL.createObjectURL(blob);
+  $("result-img").src = url;
+  $("btn-download").href = url;
+  $("result").hidden = false;
+  canvas.width = 960; canvas.height = 720;
+  state.cam.capturing = false;
+  if (!state.cam.active) renderTo(960, 720);
+}
 $("btn-capture").addEventListener("click", () => {
   clickSound();
   const W = 2048, H = 1536;
+  if (state.cam.active && camVideo.readyState >= 2) {
+    state.cam.capturing = true;
+    const capC = document.createElement("canvas"); capC.width = W; capC.height = H;
+    drawCover(capC.getContext("2d"), camVideo, W, H);
+    const capD = document.createElement("canvas"); capD.width = 1024; capD.height = 768;
+    paintCamDepth(capD.getContext("2d"), 1024, 768);
+    uploadSource(capC, capD);
+    canvas.width = W; canvas.height = H;
+    renderTo(W, H);
+    canvas.toBlob(finishCapture, "image/jpeg", 0.92);
+    return;
+  }
   canvas.width = W; canvas.height = H;
   renderTo(W, H);
-  canvas.toBlob(blob => {
-    lastBlob = blob;
-    const url = URL.createObjectURL(blob);
-    $("result-img").src = url;
-    $("btn-download").href = url;
-    $("result").hidden = false;
-    canvas.width = 960; canvas.height = 720;
-    renderTo(960, 720);
-  }, "image/jpeg", 0.92);
+  canvas.toBlob(finishCapture, "image/jpeg", 0.92);
 });
 $("btn-share").addEventListener("click", async () => {
   if (!lastBlob) return;
@@ -745,6 +995,9 @@ window.__mg = {
   renderNow: () => renderTo(canvas.width, canvas.height),
   lensParams,
   audioState: () => (AC ? AC.state : "none"),
+  startCamera, stopCamera,
+  camState: () => ({ active: state.cam.active, facing: state.cam.facing, sun: { ...state.cam.sunSm }, focusPt: { ...state.cam.focusPt } }),
+  setFocusPt: (x, y) => { state.cam.focusPt = { x, y }; positionFocusMark(); },
 };
 </script>
 </body>
