@@ -19,14 +19,14 @@
   :root{ --bg:#14151a; --panel:#1e2026; --panel2:#26282f; --ink:#f2efe8; --dim:#a7a5ad; --amber:#e0aa4e; --line:#3a3c44; }
   *{ box-sizing:border-box; }
   body{ margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system, "Hiragino Kaku Gothic ProN", "Hiragino Sans", sans-serif; }
-  .wrap{ max-width:760px; margin:0 auto; padding:14px 14px 40px; }
+  .wrap{ max-width:760px; margin:0 auto; padding:14px 14px calc(56px + env(safe-area-inset-bottom)); }
   h1{ font-size:1.7rem; margin:6px 0 2px; letter-spacing:.06em; }
   h1 .accent{ color:var(--amber); }
   .sub{ color:var(--dim); font-size:.95rem; margin:0 0 12px; }
   .stage{ position:relative; background:#000; border-radius:14px; overflow:hidden; border:1px solid var(--line); }
   canvas#gl{ display:block; width:100%; aspect-ratio:4/3; touch-action:none; }
   .sun-hint{ position:absolute; left:10px; bottom:8px; background:rgba(10,10,14,.72); color:#ffd98a; font-size:.8rem; padding:4px 10px; border-radius:999px; pointer-events:none; }
-  .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:14px; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:10px; }
   .card h2{ font-size:1.02rem; margin:0 0 10px; color:var(--amber); letter-spacing:.04em; }
   .lens-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .lens-btn{ text-align:left; background:var(--panel2); color:var(--ink); border:2px solid var(--line); border-radius:12px; padding:12px; cursor:pointer; font-size:.95rem; line-height:1.45; }
@@ -43,7 +43,7 @@
   .note{ color:var(--dim); font-size:.86rem; line-height:1.6; margin:8px 0 0; }
   .big-btn{ display:block; width:100%; min-height:60px; border:none; border-radius:14px; background:linear-gradient(180deg,#e8b45c,#c78f2e); color:#231a05; font-size:1.2rem; font-weight:800; cursor:pointer; margin-top:16px; letter-spacing:.08em; }
   .ghost-btn{ display:block; width:100%; min-height:52px; border-radius:12px; border:1px solid var(--line); background:var(--panel2); color:var(--ink); font-size:.98rem; cursor:pointer; margin-top:10px; text-align:center; text-decoration:none; line-height:52px; }
-  #result{ position:fixed; inset:0; z-index:60; background:rgba(8,8,11,0.97); overflow-y:auto; padding:22px 16px 34px; }
+  #result{ position:fixed; inset:0; z-index:60; background:rgba(8,8,11,0.97); overflow-y:auto; padding:22px 16px calc(40px + env(safe-area-inset-bottom)); }
   #result .inner{ max-width:680px; margin:0 auto; }
   #result h2{ font-size:1.5rem; margin:4px 0 6px; color:var(--amber); letter-spacing:.05em; }
   #result img{ width:100%; max-height:62vh; object-fit:contain; border-radius:14px; border:1px solid var(--line); display:block; background:#000; }
@@ -73,22 +73,7 @@
     </div>
   </div>
 
-  <div class="card">
-    <h2>レンズ</h2>
-    <div class="lens-grid">
-      <button type="button" class="lens-btn on" id="lens-ural"><b>Ural 58mm F2.0</b>（1968）<br><span>ぐるぐるボケ・青みの発色・虹リングのゴースト</span></button>
-      <button type="button" class="lens-btn" id="lens-gorlitz"><b>Gorlitz 100mm F2.8</b>（1950）<br><span>シャボン玉ボケ・パステル調ハイライト</span></button>
-    </div>
-    <h2 style="margin-top:18px">テストベンチ（被写体）</h2>
-    <div class="seg">
-      <button type="button" id="bench-a" class="on">A 木漏れ日の森</button>
-      <button type="button" id="bench-b">B 逆光の夕暮れ</button>
-      <button type="button" id="bench-c">C 夜の街並み</button>
-    </div>
-    <p class="note" id="bench-note">点光源がたくさんある森。玉ボケとぐるぐるの出方が一番よく分かります。</p>
-  </div>
-
-  <div class="card">
+  <div class="card" id="card-settings">
     <h2>撮影の設定</h2>
     <div class="row">
       <label for="aperture">絞り</label>
@@ -110,12 +95,27 @@
     <p class="note">撮影すると、フル解像度（長辺2048px）で描き直して保存できます。ライブ表示は軽さのため中解像度です。</p>
   </div>
 
+  <div class="card" id="card-lens">
+    <h2>レンズ</h2>
+    <div class="lens-grid">
+      <button type="button" class="lens-btn on" id="lens-ural"><b>Ural 58mm F2.0</b>（1968）<br><span>ぐるぐるボケ・青みの発色・虹リングのゴースト</span></button>
+      <button type="button" class="lens-btn" id="lens-gorlitz"><b>Gorlitz 100mm F2.8</b>（1950）<br><span>シャボン玉ボケ・パステル調ハイライト</span></button>
+    </div>
+    <h2 style="margin-top:18px">テストベンチ（被写体）</h2>
+    <div class="seg">
+      <button type="button" id="bench-a" class="on">A 木漏れ日の森</button>
+      <button type="button" id="bench-b">B 逆光の夕暮れ</button>
+      <button type="button" id="bench-c">C 夜の街並み</button>
+    </div>
+    <p class="note" id="bench-note">点光源がたくさんある森。玉ボケとぐるぐるの出方が一番よく分かります。</p>
+  </div>
+
   <div class="card">
     <h2>このレンズについて</h2>
     <div class="desc" id="lens-desc"></div>
   </div>
 
-  <p class="foot">名玉カメラ <span id="app-ver">版数 v3</span><br>不具合が出るかもしれません。実際にご使用の際に不具合がありましたらコメント欄からお知らせください。</p>
+  <p class="foot">名玉カメラ <span id="app-ver">版数 v4</span><br>不具合が出るかもしれません。実際にご使用の際に不具合がありましたらコメント欄からお知らせください。</p>
 </div>
 
 <script>
@@ -389,12 +389,17 @@ const FS_BLUR = [
   "    float th = fi * 2.399963;",
   "    vec2 off = vec2(cos(th), sin(th)) * rr;",
   "    vec2 offQ = off * vec2(1.0, uAspect);",
-  "    float rotA = uSwirl * 2.8 * field * rr;",
+  "    float rotA = uSwirl * 3.4 * field * rr;",
   "    float ca2 = cos(rotA), sa2 = sin(rotA);",
   "    offQ = mat2(ca2, -sa2, sa2, ca2) * offQ;",
   "    float cr = dot(offQ, rdir), ct = dot(offQ, tdir);",
   "    offQ = rdir * cr * (1.0 - squash) + tdir * ct;",
   "    vec2 suv = vUv + vec2(offQ.x, offQ.y / uAspect) * rad;",
+  "    float wa = uSwirl * 0.85 * field * cocC;",
+  "    float wc = cos(wa), ws = sin(wa);",
+  "    vec2 relQ = (suv - 0.5) * vec2(uAspect, 1.0);",
+  "    relQ = mat2(wc, -ws, ws, wc) * relQ;",
+  "    suv = 0.5 + vec2(relQ.x / uAspect, relQ.y);",
   "    float w = 0.25 + 0.75 * clamp(cocAt(suv) * 1.25, 0.0, 1.0);",
   "    acc += texture2D(uTex, suv).rgb * w;",
   "    wsum += w;",
